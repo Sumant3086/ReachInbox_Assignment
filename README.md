@@ -1,205 +1,310 @@
-# 📧 ReachInbox Email Scheduler
+# ReachInbox Email Scheduler
 
-Hey there! This is my submission for the ReachInbox assignment - a production-ready email scheduler that can handle scheduling and sending emails at scale.
+Production-grade email scheduler with BullMQ, Redis, PostgreSQL, and React - built for the ReachInbox hiring assignment.
 
-## 🎯 What Does This Do?
+## Live Demo
 
-Think of it as a mini version of what ReachInbox does under the hood. You can:
-- Schedule emails to be sent at specific times
-- Upload a list of recipients via CSV/TXT file
-- Control how fast emails go out (rate limiting)
-- See all your scheduled and sent emails in a clean dashboard
-- Rest easy knowing your scheduled emails won't disappear if the server restarts
+- Frontend: https://reachinboxa.onrender.com
+- Backend API: https://reachinbox-assignment-4fx6.onrender.com
+- GitHub Repository: https://github.com/Sumant3086/ReachInbox_Assignment
 
-## ✨ Key Features
+Note: Free tier services may take 30-50 seconds to wake up on first request.
 
-### The Cool Stuff
-- **No Cron Jobs**: Uses BullMQ with Redis for smart job scheduling
-- **Survives Restarts**: Schedule emails, restart the server, they still send on time
-- **Rate Limiting**: Won't spam - respects hourly limits and delays between emails
-- **Real Google Login**: Actual OAuth, not a mock
-- **Clean UI**: Built with React and Tailwind CSS to match the Figma design
+## Overview
 
-### Under the Hood
-- **Backend**: TypeScript + Express.js + BullMQ + Redis + MySQL
-- **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **Email Testing**: Ethereal Email (fake SMTP for safe testing)
+This is a full-stack email scheduler application that allows users to schedule and send emails at specific times with rate limiting and concurrency control. The system uses BullMQ with Redis for job scheduling (no cron jobs) and persists data in PostgreSQL.
 
-## 🚀 Quick Start
+## Key Features
 
-### What You Need
-- Node.js 18 or higher
-- MySQL running locally
-- Docker (for Redis)
-- A Google account (for OAuth)
+- BullMQ + Redis for persistent job scheduling (no cron)
+- Survives server restarts without losing scheduled jobs
+- Rate limiting with configurable hourly limits per sender
+- Worker concurrency for parallel email processing
+- Delay between emails to mimic provider throttling
+- Real Google OAuth authentication
+- Clean React UI with Tailwind CSS
+- PostgreSQL database for data persistence
+- Ethereal Email SMTP for testing
 
-### Step 1: Get Redis Running
+## Technical Stack
+
+Backend:
+- TypeScript
+- Express.js
+- BullMQ
+- Redis (Upstash)
+- PostgreSQL
+- Nodemailer
+- Passport.js (Google OAuth)
+
+Frontend:
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Axios
+
+Deployment:
+- Render (Frontend & Backend)
+- Upstash (Redis)
+- Render PostgreSQL
+
+## Architecture
+
+### Scheduling System
+- Uses BullMQ delayed jobs backed by Redis
+- Each email is stored in PostgreSQL with a unique ID
+- Jobs are scheduled with delays calculated from start time
+- Redis ensures jobs persist across restarts
+
+### Rate Limiting
+- Implemented using PostgreSQL counters keyed by hour_window + sender_email
+- When hourly limit is reached, jobs are rescheduled to next hour
+- Safe across multiple workers using database transactions
+
+### Persistence
+- All email jobs stored in PostgreSQL emails table
+- BullMQ stores job state in Redis
+- On restart, BullMQ automatically recovers pending jobs from Redis
+- Database tracks sent/failed status to prevent duplicates
+
+## Local Development Setup
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL or MySQL
+- Redis
+- Docker (optional, for Redis)
+
+### Step 1: Clone Repository
+```bash
+git clone https://github.com/Sumant3086/ReachInbox_Assignment.git
+cd ReachInbox_Assignment
+```
+
+### Step 2: Setup Redis
+
+Option A - Using Docker:
 ```bash
 docker run -d -p 6379:6379 --name reachinbox-redis redis:alpine
 ```
 
-### Step 2: Setup Ethereal Email
-1. Go to https://ethereal.email/create
-2. Copy the username and password you get
+Option B - Using Upstash:
+1. Sign up at https://console.upstash.com/
+2. Create a Redis database
+3. Copy connection details
 
-### Step 3: Setup Google OAuth
-1. Head to https://console.cloud.google.com/
-2. Create a new project (or use existing)
-3. Go to "APIs & Services" → "Credentials"
-4. Create "OAuth 2.0 Client ID"
-5. Add this redirect URI: `http://localhost:3001/auth/google/callback`
-6. Save your Client ID and Secret
+### Step 3: Setup Database
 
-### Step 4: Configure Backend
+For PostgreSQL:
+```bash
+createdb reachinbox
+```
+
+For MySQL:
+```bash
+mysql -u root -e "CREATE DATABASE reachinbox;"
+```
+
+### Step 4: Setup Ethereal Email
+1. Visit https://ethereal.email/create
+2. Copy the username and password
+
+### Step 5: Setup Google OAuth
+1. Go to https://console.cloud.google.com/
+2. Create a new project or select existing
+3. Go to APIs & Services > Credentials
+4. Create OAuth 2.0 Client ID
+5. Add authorized redirect URI: http://localhost:3001/auth/google/callback
+6. Copy Client ID and Secret
+
+### Step 6: Configure Backend
 ```bash
 cd backend
 npm install
 cp .env.example .env
 ```
 
-Now edit `backend/.env` with your credentials (Ethereal email, Google OAuth, etc.)
+Edit backend/.env with your credentials:
+```
+PORT=3001
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
-### Step 5: Start Backend
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=your_user
+DB_PASSWORD=your_password
+DB_NAME=reachinbox
+
+SMTP_HOST=smtp.ethereal.email
+SMTP_PORT=587
+SMTP_USER=your-ethereal-user
+SMTP_PASS=your-ethereal-pass
+
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
+
+SESSION_SECRET=your-random-secret
+FRONTEND_URL=http://localhost:3000
+
+WORKER_CONCURRENCY=5
+EMAIL_DELAY_MS=2000
+MAX_EMAILS_PER_HOUR=200
+```
+
+### Step 7: Start Backend
 ```bash
 cd backend
 npm run dev
 ```
 
-### Step 6: Start Frontend
-Open a new terminal:
+### Step 8: Setup Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Step 7: Try It Out!
-Open http://localhost:3000 in your browser and login with Google!
+### Step 9: Access Application
+Open http://localhost:3000 in your browser
 
-## 📝 How to Use
+## Usage
 
-1. **Login**: Click "Continue with Google"
-2. **Compose**: Hit the "Compose New Email" button
-3. **Fill Details**:
-   - Write your subject and message
-   - Upload a CSV/TXT file with email addresses
-   - Pick when to start sending
-   - Set delay between emails (in seconds)
-   - Set hourly limit
-4. **Schedule**: Click "Schedule Emails"
-5. **Watch**: Check the "Scheduled Emails" tab, then "Sent Emails" after they go out
-6. **Verify**: Login to https://ethereal.email/messages to see the actual emails
+1. Login with Google OAuth
+2. Click "Compose New Email"
+3. Fill in subject and body
+4. Upload CSV/TXT file with email addresses
+5. Set start time, delay between emails, and hourly limit
+6. Click "Schedule Emails"
+7. View scheduled emails in "Scheduled Emails" tab
+8. View sent emails in "Sent Emails" tab
+9. Check Ethereal inbox at https://ethereal.email/messages
 
-## 🧪 Testing the Restart Feature
+## Testing Restart Persistence
 
-Want to see the magic? Here's how:
-
-1. Schedule some emails for 5 minutes from now
+1. Schedule emails for 5 minutes in the future
 2. Stop the backend server (Ctrl+C)
-3. Wait a couple minutes
-4. Start the backend again
-5. Watch as emails still send at the right time - no duplicates, no lost jobs!
+3. Wait 1 minute
+4. Start the backend server again
+5. Emails will still be sent at the scheduled time
 
-## 🏗️ How It Works
-
-### Scheduling
-- Uses BullMQ to create delayed jobs in Redis
-- Each email gets a unique ID and is stored in MySQL
-- When it's time to send, the worker picks it up automatically
-
-### Rate Limiting
-- Tracks emails sent per hour in MySQL
-- If you hit the limit, jobs get rescheduled to the next hour
-- No emails are dropped or lost
-
-### Persistence
-- Redis keeps the job queue
-- MySQL keeps the email records
-- On restart, BullMQ loads pending jobs from Redis
-- Database prevents duplicate sends
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 backend/
 ├── src/
-│   ├── config/          # Database, Redis, OAuth setup
-│   ├── middleware/      # Auth checks
-│   ├── queue/           # BullMQ worker
+│   ├── config/          # Database, Redis, Passport configuration
+│   ├── middleware/      # Authentication middleware
+│   ├── queue/           # BullMQ worker and queue setup
 │   ├── routes/          # API endpoints
 │   ├── services/        # Email sending logic
-│   └── server.ts        # Main entry point
+│   └── server.ts        # Express app entry
 └── package.json
 
 frontend/
 ├── src/
-│   ├── components/      # Reusable UI pieces
-│   ├── pages/           # Login & Dashboard
-│   ├── api.ts           # Backend communication
-│   └── types.ts         # TypeScript definitions
+│   ├── components/      # Reusable UI components
+│   ├── pages/           # Login and Dashboard pages
+│   ├── api.ts           # API client
+│   ├── types.ts         # TypeScript interfaces
+│   └── App.tsx          # Root component
 └── package.json
 ```
 
-## 🔧 Tech Stack
+## API Endpoints
 
-**Backend**
-- TypeScript for type safety
-- Express.js for the API
-- BullMQ for job scheduling
-- Redis for job persistence
-- MySQL for data storage
-- Nodemailer for sending emails
-- Passport.js for Google OAuth
+Authentication:
+- GET /auth/google - Initiate Google OAuth
+- GET /auth/google/callback - OAuth callback
+- GET /auth/user - Get current user
+- POST /auth/logout - Logout
 
-**Frontend**
-- React for the UI
-- TypeScript for type safety
-- Vite for fast builds
-- Tailwind CSS for styling
-- Axios for API calls
+Emails:
+- POST /api/emails/schedule - Schedule emails (multipart/form-data)
+- GET /api/emails/scheduled - Get scheduled emails
+- GET /api/emails/sent - Get sent emails
 
-## 💡 Design Decisions
+## Environment Variables
 
-- **Why BullMQ?** Better than cron for delayed jobs, has built-in persistence and retry logic
-- **Why MySQL?** Need ACID transactions for rate limiting, better for structured data
-- **Why Ethereal?** Safe testing without spamming real inboxes
-- **Why Session Auth?** Simpler for demo, production would use JWT
+Backend Required Variables:
+- PORT - Server port
+- REDIS_HOST - Redis hostname
+- REDIS_PORT - Redis port
+- REDIS_PASSWORD - Redis password (if using Upstash)
+- DB_HOST - Database hostname
+- DB_PORT - Database port
+- DB_USER - Database username
+- DB_PASSWORD - Database password
+- DB_NAME - Database name
+- SMTP_HOST - SMTP server host
+- SMTP_PORT - SMTP server port
+- SMTP_USER - SMTP username
+- SMTP_PASS - SMTP password
+- GOOGLE_CLIENT_ID - Google OAuth client ID
+- GOOGLE_CLIENT_SECRET - Google OAuth client secret
+- GOOGLE_CALLBACK_URL - Google OAuth callback URL
+- SESSION_SECRET - Session secret key
+- FRONTEND_URL - Frontend URL
+- WORKER_CONCURRENCY - Number of concurrent workers
+- EMAIL_DELAY_MS - Delay between emails in milliseconds
+- MAX_EMAILS_PER_HOUR - Maximum emails per hour
 
-## 🎓 What I Learned
+## Deployment
 
-Building this taught me a lot about:
-- Job queues and background processing
-- Rate limiting at scale
-- Handling server restarts gracefully
-- Building production-ready APIs
-- React state management
-- OAuth flows
+The application is deployed on Render:
+- Frontend: Static Site
+- Backend: Web Service
+- Database: PostgreSQL
+- Redis: Upstash
 
-## 📦 Sample Files
+Deployment URLs:
+- Application: https://reachinboxa.onrender.com
+- API: https://reachinbox-assignment-4fx6.onrender.com
 
-Check out `sample-emails.txt` for an example email list format.
+## Design Decisions
 
-## 🐛 Troubleshooting
+1. BullMQ over Cron: Better for delayed jobs, has built-in persistence and retry logic
+2. PostgreSQL over MongoDB: Need ACID transactions for rate limiting, better for structured data
+3. Ethereal Email: Safe testing without spamming real inboxes
+4. Session Auth: Simpler for demo, production would use JWT
 
-**Backend won't start?**
-- Make sure Redis is running: `docker ps`
-- Check MySQL is running and credentials are correct
-- Verify all environment variables in `.env`
+## Limitations and Future Improvements
 
-**Can't login?**
-- Double-check Google OAuth credentials
-- Make sure redirect URI matches exactly
-- Check if Google+ API is enabled
+Current Limitations:
+- Single tenant (one user per session)
+- Basic error messages
+- No email templates
+- Session store in memory
 
-**Emails not sending?**
-- Verify Ethereal credentials
-- Check backend logs for errors
-- Make sure Redis and MySQL are connected
+Future Enhancements:
+- Email templates with variables
+- Campaign management
+- Analytics dashboard
+- Click tracking
+- Unit and integration tests
+- Monitoring with Prometheus
+- Better error handling and logging
 
-## 🙏 Acknowledgments
+## Contact
+
+- Developer: Sumant Yadav
+- GitHub: https://github.com/Sumant3086
+- Repository: https://github.com/Sumant3086/ReachInbox_Assignment
+- Live Demo: https://reachinboxa.onrender.com
+
+## Acknowledgments
 
 Built for the ReachInbox hiring assignment. All code is original and written specifically for this project.
 
----
+Technologies and Services:
+- BullMQ - Job queue (https://docs.bullmq.io/)
+- Render - Deployment platform (https://render.com/)
+- Upstash - Redis hosting (https://upstash.com/)
+- Ethereal Email - Email testing (https://ethereal.email/)
+- Google OAuth - Authentication (https://developers.google.com/identity/protocols/oauth2)
 
-Made with ☕ and lots of debugging
+## License
+
+This project is created for the ReachInbox hiring assignment.
