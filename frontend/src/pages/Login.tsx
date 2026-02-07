@@ -1,6 +1,6 @@
 function Login() {
   const handleGoogleLogin = () => {
-    window.location.href = 'https://reachinboxbackend.onrender.com/auth/google';
+    window.location.href = 'https://reachinbox-assignment-4fx6.onrender.com/auth/google';
   };
 
   return (

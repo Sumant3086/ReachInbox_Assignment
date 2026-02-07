@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://reachinboxbackend.onrender.com',
+  baseURL: 'https://reachinbox-assignment-4fx6.onrender.com',
   withCredentials: true
 });
 
