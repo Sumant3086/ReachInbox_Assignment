@@ -30,22 +30,25 @@ export const emailQueue = new Queue('email-queue', {
 
 async function checkRateLimit(senderEmail: string): Promise<boolean> {
   const hourKey = new Date().toISOString().slice(0, 13);
-  const connection = await pool.getConnection();
+  const client = await pool.connect();
   
   try {
-    await connection.query(
-      'INSERT INTO rate_limits (hour_key, sender_email, count) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE count = count + 1',
+    await client.query(
+      `INSERT INTO rate_limits (hour_key, sender_email, count) 
+       VALUES ($1, $2, 1) 
+       ON CONFLICT (hour_key, sender_email) 
+       DO UPDATE SET count = rate_limits.count + 1`,
       [hourKey, senderEmail]
     );
     
-    const [rows] = await connection.query<any[]>(
-      'SELECT count FROM rate_limits WHERE hour_key = ? AND sender_email = ?',
+    const result = await client.query(
+      'SELECT count FROM rate_limits WHERE hour_key = $1 AND sender_email = $2',
       [hourKey, senderEmail]
     );
     
-    return rows[0].count <= MAX_EMAILS_PER_HOUR;
+    return result.rows[0].count <= MAX_EMAILS_PER_HOUR;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -71,14 +74,14 @@ export const emailWorker = new Worker<EmailJobData>(
       await sendEmail(recipientEmail, subject, body);
       
       await pool.query(
-        'UPDATE emails SET status = ?, sent_at = NOW() WHERE id = ?',
+        'UPDATE emails SET status = $1, sent_at = NOW() WHERE id = $2',
         ['sent', emailId]
       );
       
       return { success: true, emailId };
     } catch (error: any) {
       await pool.query(
-        'UPDATE emails SET status = ?, error_message = ? WHERE id = ?',
+        'UPDATE emails SET status = $1, error_message = $2 WHERE id = $3',
         ['failed', error.message, emailId]
       );
       throw error;

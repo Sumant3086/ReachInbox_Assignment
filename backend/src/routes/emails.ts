@@ -36,7 +36,7 @@ router.post('/schedule', isAuthenticated, upload.single('file'), async (req, res
       const scheduledAt = new Date(startDate.getTime() + i * delayMs);
       
       await pool.query(
-        'INSERT INTO emails (id, user_email, recipient_email, subject, body, scheduled_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO emails (id, user_email, recipient_email, subject, body, scheduled_at, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
         [emailId, user.email, emails[i], subject, body, scheduledAt, 'scheduled']
       );
       
@@ -67,11 +67,11 @@ router.post('/schedule', isAuthenticated, upload.single('file'), async (req, res
 router.get('/scheduled', isAuthenticated, async (req, res) => {
   try {
     const user = req.user as any;
-    const [rows] = await pool.query(
-      'SELECT id, recipient_email, subject, scheduled_at, status FROM emails WHERE user_email = ? AND status = ? ORDER BY scheduled_at DESC',
+    const result = await pool.query(
+      'SELECT id, recipient_email, subject, scheduled_at, status FROM emails WHERE user_email = $1 AND status = $2 ORDER BY scheduled_at DESC',
       [user.email, 'scheduled']
     );
-    res.json(rows);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -80,11 +80,11 @@ router.get('/scheduled', isAuthenticated, async (req, res) => {
 router.get('/sent', isAuthenticated, async (req, res) => {
   try {
     const user = req.user as any;
-    const [rows] = await pool.query(
-      'SELECT id, recipient_email, subject, sent_at, status, error_message FROM emails WHERE user_email = ? AND status IN (?, ?) ORDER BY sent_at DESC',
+    const result = await pool.query(
+      'SELECT id, recipient_email, subject, sent_at, status, error_message FROM emails WHERE user_email = $1 AND status IN ($2, $3) ORDER BY sent_at DESC',
       [user.email, 'sent', 'failed']
     );
-    res.json(rows);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
