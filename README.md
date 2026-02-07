@@ -1,220 +1,205 @@
-# ReachInbox Email Scheduler
+# 📧 ReachInbox Email Scheduler
 
-Production-grade email scheduler service with BullMQ, Redis, and MySQL/PostgreSQL.
+Hey there! This is my submission for the ReachInbox assignment - a production-ready email scheduler that can handle scheduling and sending emails at scale.
 
-## Features
+## 🎯 What Does This Do?
 
-### Backend
-- **BullMQ + Redis** for persistent job scheduling (no cron)
-- **MySQL/PostgreSQL** database for email storage
-- **Ethereal Email** SMTP for testing
-- **Rate limiting** with configurable hourly limits per sender
-- **Worker concurrency** for parallel email processing
-- **Delay between emails** to mimic provider throttling
-- **Persistence across restarts** - scheduled emails survive server restarts
-- **Idempotency** - emails are never sent twice
+Think of it as a mini version of what ReachInbox does under the hood. You can:
+- Schedule emails to be sent at specific times
+- Upload a list of recipients via CSV/TXT file
+- Control how fast emails go out (rate limiting)
+- See all your scheduled and sent emails in a clean dashboard
+- Rest easy knowing your scheduled emails won't disappear if the server restarts
 
-### Frontend
-- **Google OAuth** authentication
-- **Compose email** with CSV/TXT file upload
-- **Scheduled emails** table view
-- **Sent emails** table view with status
-- Clean UI with Tailwind CSS
+## ✨ Key Features
 
-## Architecture
+### The Cool Stuff
+- **No Cron Jobs**: Uses BullMQ with Redis for smart job scheduling
+- **Survives Restarts**: Schedule emails, restart the server, they still send on time
+- **Rate Limiting**: Won't spam - respects hourly limits and delays between emails
+- **Real Google Login**: Actual OAuth, not a mock
+- **Clean UI**: Built with React and Tailwind CSS to match the Figma design
 
-### Scheduling System
-- Uses **BullMQ delayed jobs** backed by Redis
-- Each email is stored in MySQL with a unique ID
-- Jobs are scheduled with delays calculated from start time
-- Redis ensures jobs persist across restarts
+### Under the Hood
+- **Backend**: TypeScript + Express.js + BullMQ + Redis + MySQL
+- **Frontend**: React + TypeScript + Vite + Tailwind CSS
+- **Email Testing**: Ethereal Email (fake SMTP for safe testing)
 
-### Rate Limiting
-- Implemented using MySQL counters keyed by `hour_window + sender_email`
-- When hourly limit is reached, jobs are rescheduled to next hour
-- Safe across multiple workers using database transactions
+## 🚀 Quick Start
 
-### Concurrency & Throttling
-- Worker concurrency: Configurable via `WORKER_CONCURRENCY` (default: 5)
-- Email delay: Minimum `EMAIL_DELAY_MS` between sends (default: 2000ms)
-- BullMQ limiter ensures controlled throughput
+### What You Need
+- Node.js 18 or higher
+- MySQL running locally
+- Docker (for Redis)
+- A Google account (for OAuth)
 
-### Persistence
-- All email jobs stored in MySQL `emails` table
-- BullMQ stores job state in Redis
-- On restart, BullMQ automatically recovers pending jobs from Redis
-- Database tracks sent/failed status to prevent duplicates
-
-## Setup
-
-### Prerequisites
-- Node.js 18+
-- MySQL or PostgreSQL
-- Redis
-- Docker (optional, for Redis/MySQL)
-
-### 1. Start Redis and MySQL (Docker)
-
+### Step 1: Get Redis Running
 ```bash
-docker run -d -p 6379:6379 redis:alpine
-docker run -d -p 3306:3306 -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=reachinbox mysql:8
+docker run -d -p 6379:6379 --name reachinbox-redis redis:alpine
 ```
 
-### 2. Setup Ethereal Email
+### Step 2: Setup Ethereal Email
+1. Go to https://ethereal.email/create
+2. Copy the username and password you get
 
-Visit https://ethereal.email/ and create a test account. Note the credentials.
+### Step 3: Setup Google OAuth
+1. Head to https://console.cloud.google.com/
+2. Create a new project (or use existing)
+3. Go to "APIs & Services" → "Credentials"
+4. Create "OAuth 2.0 Client ID"
+5. Add this redirect URI: `http://localhost:3001/auth/google/callback`
+6. Save your Client ID and Secret
 
-### 3. Setup Google OAuth
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: `http://localhost:3001/auth/google/callback`
-6. Note the Client ID and Secret
-
-### 4. Backend Setup
-
+### Step 4: Configure Backend
 ```bash
 cd backend
 npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
-```env
-PORT=3001
-REDIS_HOST=localhost
-REDIS_PORT=6379
+Now edit `backend/.env` with your credentials (Ethereal email, Google OAuth, etc.)
 
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=password
-DB_NAME=reachinbox
-
-SMTP_HOST=smtp.ethereal.email
-SMTP_PORT=587
-SMTP_USER=your-ethereal-user
-SMTP_PASS=your-ethereal-pass
-
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
-
-SESSION_SECRET=your-random-secret
-FRONTEND_URL=http://localhost:3000
-
-WORKER_CONCURRENCY=5
-EMAIL_DELAY_MS=2000
-MAX_EMAILS_PER_HOUR=200
-```
-
-Start backend:
+### Step 5: Start Backend
 ```bash
+cd backend
 npm run dev
 ```
 
-### 5. Frontend Setup
-
+### Step 6: Start Frontend
+Open a new terminal:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend runs on http://localhost:3000
+### Step 7: Try It Out!
+Open http://localhost:3000 in your browser and login with Google!
 
-## Usage
+## 📝 How to Use
 
-1. Open http://localhost:3000
-2. Click "Continue with Google"
-3. After login, click "Compose New Email"
-4. Fill in:
-   - Subject and body
-   - Upload CSV/TXT file with emails (one per line or comma-separated)
-   - Set start time
-   - Set delay between emails (seconds)
+1. **Login**: Click "Continue with Google"
+2. **Compose**: Hit the "Compose New Email" button
+3. **Fill Details**:
+   - Write your subject and message
+   - Upload a CSV/TXT file with email addresses
+   - Pick when to start sending
+   - Set delay between emails (in seconds)
    - Set hourly limit
-5. Click "Schedule Emails"
-6. View scheduled/sent emails in respective tabs
+4. **Schedule**: Click "Schedule Emails"
+5. **Watch**: Check the "Scheduled Emails" tab, then "Sent Emails" after they go out
+6. **Verify**: Login to https://ethereal.email/messages to see the actual emails
 
-## Testing Restart Scenario
+## 🧪 Testing the Restart Feature
 
-1. Schedule emails for 5 minutes in the future
+Want to see the magic? Here's how:
+
+1. Schedule some emails for 5 minutes from now
 2. Stop the backend server (Ctrl+C)
-3. Wait 1 minute
-4. Start the backend server again
-5. Emails will still be sent at the scheduled time
+3. Wait a couple minutes
+4. Start the backend again
+5. Watch as emails still send at the right time - no duplicates, no lost jobs!
 
-## Rate Limiting Behavior
+## 🏗️ How It Works
 
-When hourly limit is reached:
-- Jobs are not dropped or failed
-- They are rescheduled to the next hour window
-- Order is preserved as much as possible
-- Uses database counters for accuracy across workers
+### Scheduling
+- Uses BullMQ to create delayed jobs in Redis
+- Each email gets a unique ID and is stored in MySQL
+- When it's time to send, the worker picks it up automatically
 
-## Project Structure
+### Rate Limiting
+- Tracks emails sent per hour in MySQL
+- If you hit the limit, jobs get rescheduled to the next hour
+- No emails are dropped or lost
+
+### Persistence
+- Redis keeps the job queue
+- MySQL keeps the email records
+- On restart, BullMQ loads pending jobs from Redis
+- Database prevents duplicate sends
+
+## 📁 Project Structure
 
 ```
 backend/
 ├── src/
-│   ├── config/
-│   │   ├── database.ts      # MySQL connection & schema
-│   │   ├── redis.ts         # Redis connection
-│   │   └── passport.ts      # Google OAuth config
-│   ├── middleware/
-│   │   └── auth.ts          # Authentication middleware
-│   ├── queue/
-│   │   └── emailQueue.ts    # BullMQ worker & queue
-│   ├── routes/
-│   │   ├── auth.ts          # Auth endpoints
-│   │   └── emails.ts        # Email API endpoints
-│   ├── services/
-│   │   └── emailService.ts  # SMTP email sending
-│   └── server.ts            # Express app entry
+│   ├── config/          # Database, Redis, OAuth setup
+│   ├── middleware/      # Auth checks
+│   ├── queue/           # BullMQ worker
+│   ├── routes/          # API endpoints
+│   ├── services/        # Email sending logic
+│   └── server.ts        # Main entry point
 └── package.json
 
 frontend/
 ├── src/
-│   ├── components/
-│   │   ├── Header.tsx       # Top navigation
-│   │   └── ComposeModal.tsx # Email compose form
-│   ├── pages/
-│   │   ├── Login.tsx        # Google login page
-│   │   └── Dashboard.tsx    # Main dashboard
-│   ├── api.ts               # API client
-│   ├── types.ts             # TypeScript types
-│   ├── App.tsx              # Root component
-│   └── main.tsx             # Entry point
+│   ├── components/      # Reusable UI pieces
+│   ├── pages/           # Login & Dashboard
+│   ├── api.ts           # Backend communication
+│   └── types.ts         # TypeScript definitions
 └── package.json
 ```
 
-## API Endpoints
+## 🔧 Tech Stack
 
-### Authentication
-- `GET /auth/google` - Initiate Google OAuth
-- `GET /auth/google/callback` - OAuth callback
-- `GET /auth/user` - Get current user
-- `POST /auth/logout` - Logout
+**Backend**
+- TypeScript for type safety
+- Express.js for the API
+- BullMQ for job scheduling
+- Redis for job persistence
+- MySQL for data storage
+- Nodemailer for sending emails
+- Passport.js for Google OAuth
 
-### Emails
-- `POST /api/emails/schedule` - Schedule emails (multipart/form-data)
-- `GET /api/emails/scheduled` - Get scheduled emails
-- `GET /api/emails/sent` - Get sent emails
+**Frontend**
+- React for the UI
+- TypeScript for type safety
+- Vite for fast builds
+- Tailwind CSS for styling
+- Axios for API calls
 
-## Trade-offs & Assumptions
+## 💡 Design Decisions
 
-1. **Single tenant**: Simplified to one user per session (can extend to multi-tenant)
-2. **Ethereal Email**: Used for testing; production would use real SMTP providers
-3. **Rate limiting**: Global per sender; could be extended to per-domain or per-campaign
-4. **File parsing**: Simple regex for email extraction; production would validate more strictly
-5. **Error handling**: Basic error messages; production would have detailed logging and monitoring
-6. **Security**: Session-based auth; production would use JWT or more robust session store
+- **Why BullMQ?** Better than cron for delayed jobs, has built-in persistence and retry logic
+- **Why MySQL?** Need ACID transactions for rate limiting, better for structured data
+- **Why Ethereal?** Safe testing without spamming real inboxes
+- **Why Session Auth?** Simpler for demo, production would use JWT
 
-## Technologies Used
+## 🎓 What I Learned
 
-- **Backend**: TypeScript, Express.js, BullMQ, Redis, MySQL, Nodemailer, Passport.js
-- **Frontend**: React, TypeScript, Vite, Tailwind CSS, Axios
-- **Infrastructure**: Docker (optional)
+Building this taught me a lot about:
+- Job queues and background processing
+- Rate limiting at scale
+- Handling server restarts gracefully
+- Building production-ready APIs
+- React state management
+- OAuth flows
+
+## 📦 Sample Files
+
+Check out `sample-emails.txt` for an example email list format.
+
+## 🐛 Troubleshooting
+
+**Backend won't start?**
+- Make sure Redis is running: `docker ps`
+- Check MySQL is running and credentials are correct
+- Verify all environment variables in `.env`
+
+**Can't login?**
+- Double-check Google OAuth credentials
+- Make sure redirect URI matches exactly
+- Check if Google+ API is enabled
+
+**Emails not sending?**
+- Verify Ethereal credentials
+- Check backend logs for errors
+- Make sure Redis and MySQL are connected
+
+## 🙏 Acknowledgments
+
+Built for the ReachInbox hiring assignment. All code is original and written specifically for this project.
+
+---
+
+Made with ☕ and lots of debugging

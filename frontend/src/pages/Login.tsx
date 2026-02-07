@@ -1,6 +1,8 @@
 function Login() {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:3001/auth/google';
+    window.location.href = `${API_URL}/auth/google`;
   };
 
   return (
