@@ -3,7 +3,7 @@ import passport from '../config/passport';
 
 const router = Router();
 
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' }));
 
 router.get(
   '/google/callback',
