@@ -10,8 +10,8 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60s for cold start
+    // Show UI immediately, check auth in background
+    const timeout = setTimeout(() => setLoading(false), 3000);
 
     getUser()
       .then((res) => setUser(res.data))
@@ -24,10 +24,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4 text-center px-4">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-700 font-medium">Starting up...</p>
-          <p className="text-gray-400 text-sm max-w-xs">
-            The server may take up to 60 seconds to wake up on first load. Please wait.
-          </p>
+          <p className="text-gray-700 font-medium">Loading ReachInbox...</p>
         </div>
       </div>
     );
