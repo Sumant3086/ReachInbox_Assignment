@@ -6,11 +6,10 @@ import { emailQueue } from '../queue/emailQueue';
 import { isAuthenticated } from '../middleware/auth';
 
 const MAX_EMAILS_PER_HOUR = parseInt(process.env.MAX_EMAILS_PER_HOUR || '200');
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE } });
-
 const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
 
 router.post('/schedule', isAuthenticated, upload.single('file'), async (req, res) => {
@@ -18,7 +17,6 @@ router.post('/schedule', isAuthenticated, upload.single('file'), async (req, res
     const { subject, body, startTime, delayBetweenEmails, hourlyLimit } = req.body;
     const user = req.user as any;
 
-    // Input validation
     if (!subject?.trim()) return res.status(400).json({ error: 'Subject is required' });
     if (!body?.trim())    return res.status(400).json({ error: 'Body is required' });
     if (!startTime)       return res.status(400).json({ error: 'Start time is required' });
@@ -32,38 +30,36 @@ router.post('/schedule', isAuthenticated, upload.single('file'), async (req, res
 
     const fileContent = req.file.buffer.toString('utf-8');
     const rawEmails   = fileContent.match(EMAIL_REGEX) || [];
-    // Deduplicate
-    const emails = [...new Set(rawEmails.map(e => e.toLowerCase()))];
+    const emails      = [...new Set(rawEmails.map((e: string) => e.toLowerCase()))];
 
     if (emails.length === 0) return res.status(400).json({ error: 'No valid emails found in file' });
 
-    // Batch insert all rows in one query for performance
     const now = Date.now();
     const values: any[] = [];
     const placeholders: string[] = [];
     const jobsToQueue: Array<{ id: string; data: any; delay: number }> = [];
 
     emails.forEach((email, i) => {
-      const emailId    = uuidv4();
+      const emailId     = uuidv4();
       const scheduledAt = new Date(startDate.getTime() + i * delayMs);
       const delay       = Math.max(0, scheduledAt.getTime() - now);
-      const base        = i * 7;
-
-      placeholders.push(
-        `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7})`
-      );
+      // PostgreSQL uses $1-based placeholders — base = i*7+1
+      const b = i * 7 + 1;
+      placeholders.push('($' + b + ',$' + (b+1) + ',$' + (b+2) + ',$' + (b+3) + ',$' + (b+4) + ',$' + (b+5) + ',$' + (b+6) + ')');
       values.push(emailId, user.email, email, subject.trim(), body.trim(), scheduledAt, 'scheduled');
-      jobsToQueue.push({ id: emailId, data: { emailId, recipientEmail: email, subject: subject.trim(),
-        body: body.trim(), senderEmail: user.email, hourlyLimit: limit }, delay });
+      jobsToQueue.push({
+        id: emailId,
+        data: { emailId, recipientEmail: email, subject: subject.trim(),
+                body: body.trim(), senderEmail: user.email, hourlyLimit: limit },
+        delay
+      });
     });
 
     await pool.query(
-      `INSERT INTO emails (id,user_email,recipient_email,subject,body,scheduled_at,status)
-       VALUES ${placeholders.join(',')}`,
+      'INSERT INTO emails (id,user_email,recipient_email,subject,body,scheduled_at,status) VALUES ' + placeholders.join(','),
       values
     );
 
-    // Queue all jobs (BullMQ jobId = emailId for idempotency)
     await Promise.all(
       jobsToQueue.map(j => emailQueue.add('send-email', j.data, { delay: j.delay, jobId: j.id }))
     );
