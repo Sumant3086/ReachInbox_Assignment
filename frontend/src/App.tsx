@@ -10,7 +10,7 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Show UI immediately, check auth in background
+    // Show UI in max 3s regardless of backend state
     const timeout = setTimeout(() => setLoading(false), 3000);
 
     getUser()

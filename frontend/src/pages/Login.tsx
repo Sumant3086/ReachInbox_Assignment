@@ -1,20 +1,71 @@
+import { useState, useEffect } from 'react';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 function Login() {
+  const [warming, setWarming] = useState(true);
+  const [warmMsg, setWarmMsg] = useState('Connecting to server...');
+
+  useEffect(() => {
+    // Ping backend health endpoint to wake it up before user clicks login
+    // This ensures the backend is ready when Google redirects back with the auth code
+    let attempts = 0;
+    const maxAttempts = 12; // 60s total
+
+    const ping = async () => {
+      try {
+        const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          setWarming(false);
+          setWarmMsg('');
+          return;
+        }
+      } catch {}
+
+      attempts++;
+      if (attempts >= maxAttempts) {
+        // Allow login anyway after 60s
+        setWarming(false);
+        setWarmMsg('');
+        return;
+      }
+
+      const remaining = Math.round((maxAttempts - attempts) * 5);
+      setWarmMsg(`Waking up server... (~${remaining}s)`);
+      setTimeout(ping, 5000);
+    };
+
+    ping();
+  }, []);
+
   const handleGoogleLogin = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || '';
-    window.location.href = `${apiUrl}/auth/google`;
+    window.location.href = `${API_URL}/auth/google`;
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
         <div className="text-center mb-8">
+          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">ReachInbox</h1>
-          <p className="text-gray-600">Email Scheduler Dashboard</p>
+          <p className="text-gray-500">Email Scheduler Dashboard</p>
         </div>
-        
+
+        {warming && (
+          <div className="mb-4 flex items-center gap-2 justify-center text-sm text-gray-400">
+            <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            {warmMsg}
+          </div>
+        )}
+
         <button
           onClick={handleGoogleLogin}
-          className="w-full bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition flex items-center justify-center gap-3"
+          disabled={warming}
+          className="w-full bg-white border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -22,8 +73,14 @@ function Login() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Continue with Google
+          {warming ? 'Please wait...' : 'Continue with Google'}
         </button>
+
+        {warming && (
+          <p className="mt-3 text-center text-xs text-gray-400">
+            Free tier server is waking up. Button will enable automatically.
+          </p>
+        )}
       </div>
     </div>
   );
